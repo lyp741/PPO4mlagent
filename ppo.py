@@ -101,8 +101,8 @@ class AgentPPO:
 
                 '''PPO: Surrogate objective of Trust Region'''
                 obj_critic = obj_actor = None
-                for _ in range(int(buf_len / batch_size * repeat_times)):
-                    indices = torch.randint(buf_len, size=(batch_size,), requires_grad=False, device=self.device)
+                for _ in range(int(buf_len / buf_len)):
+                    indices = torch.randint(buf_len, size=(buf_len,), requires_grad=False, device=self.device)
 
                     state = (buf_state[0][indices], buf_state[1][indices])
                     action = buf_action[indices]
