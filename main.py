@@ -66,7 +66,7 @@ def main():
     "TotalStep: 5e4, TargetReward: 200, UsedTime: 60s"
     args.env = MLA_Wrapper()
     args.reward_scale = 2 ** -1
-    args.target_step = 1000
+    args.target_step = 200
 
     train_and_evaluate(args)
 
