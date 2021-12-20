@@ -35,7 +35,10 @@ class MLA_Wrapper():
         decisionStep, terminalStep = self.env.get_steps(self.behavior_name)
         self.decisionStep = decisionStep
         self.terminalStep = terminalStep
-        obs_raw = np.concatenate((decisionStep.obs[0],decisionStep.obs[1]),1) # 2 obs, 0 is grid sensor. (agents*platform, 20, 20, 7)
+        if len(decisionStep.obs) == 1:
+            obs_raw = decisionStep.obs[0]
+        else:
+            obs_raw = np.concatenate((decisionStep.obs[0],decisionStep.obs[1]),1) # 2 obs, 0 is grid sensor. (agents*platform, 20, 20, 7)
         groupId = decisionStep.group_id
         self.groupId = groupId
         self.num_rolls = np.unique(groupId).shape[0]
@@ -48,7 +51,7 @@ class MLA_Wrapper():
         self.obs_shape = obs_raw.shape[1:]
         reward = decisionStep.reward #(agents*platform,)
         self.vis_obs_shape = 0
-        self.vec_obs_shape = obs_raw.shape[1:]
+        self.vec_obs_shape = obs_raw.shape[1:][0]
         rewards = np.zeros((self.num_rolls, self.num_agents, 1))
         for i in range(obs_raw.shape[0]):
             roll = groupId[i]-1
@@ -61,7 +64,7 @@ class MLA_Wrapper():
             for j in range(self.num_agents):
                 info.append({'individual_reward':0})
             self.infos.append(info)
-        return obs
+        return (None, obs)
 
     
     def step(self, actions):
@@ -108,7 +111,10 @@ class MLA_Wrapper():
             agent = agent_id % self.num_agents
             # roll = agent_id
             # agent = 0
-            obs[roll, agent] = np.concatenate((ds.obs[0], ds.obs[1]))
+            if len(ds.obs) == 1:
+                obs[roll, agent] = ds.obs[0]
+            else:
+                obs[roll, agent] = np.concatenate((ds.obs[0], ds.obs[1]))
             rewards[roll, agent] = ds.reward + ds.group_reward
             dones[roll, agent] = False
             self.infos[roll][agent]['individual_reward'] = ds.reward
@@ -120,9 +126,12 @@ class MLA_Wrapper():
             agent = agent_id % self.num_agents
             # roll = agent_id
             # agent = 0
-            obs[roll, agent] = np.concatenate((ts.obs[0], ts.obs[1]))
+            if len(ts.obs) == 1:
+                obs[roll, agent] = ts.obs[0]
+            else:
+                obs[roll, agent] = np.concatenate((ts.obs[0], ts.obs[1])) if obs[roll, agent] is None else obs[roll, agent]
             rewards[roll, agent] = ts.reward + ts.group_reward
-            dones[roll, agent] = not ts.interrupted
+            dones[roll, agent] = True
             masks.append((roll, agent))
 
 
@@ -136,7 +145,7 @@ class MLA_Wrapper():
         #     dones[roll, agent] = True if i in terminalStep else False
         
         # dones = np.array([True if idx in terminalStep else False for idx in range(self.num_agents)])
-        return obs, rewards, dones, self.infos, masks
+        return (None, obs), rewards.squeeze(-1), dones, self.infos, masks, decisionStep, terminalStep
 
     def close(self):
         self.env.close()

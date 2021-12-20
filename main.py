@@ -8,7 +8,7 @@ import numpy.random as rd
 from copy import deepcopy
 from args import Arguments
 from ppo import AgentPPO
-from mla_wrapper_ma_cnn import MLA_Wrapper
+from mla_wrapper_ma_vec import MLA_Wrapper
 
 def train_and_evaluate(args, agent_id=0):
     args.init_before_training(if_main=True)
@@ -66,7 +66,7 @@ def main():
     "TotalStep: 5e4, TargetReward: 200, UsedTime: 60s"
     args.env = MLA_Wrapper()
     args.reward_scale = 2 ** -1
-    args.target_step = 1000
+    args.target_step = 32
 
     train_and_evaluate(args)
 
