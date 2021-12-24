@@ -7,7 +7,7 @@ from math import floor
 class ActorDiscretePPO(nn.Module):
     def __init__(self, vis, vec, action_dim):
         super().__init__()
-        mid_dim = 64
+        mid_dim = 256
         state_dim = vec
         self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
                                  nn.Linear(mid_dim, mid_dim), nn.ReLU(),
@@ -44,7 +44,7 @@ class ActorDiscretePPO(nn.Module):
 class Critic(nn.Module):
     def __init__(self, vis, vec, _action_dim):
         super().__init__()
-        mid_dim = 64
+        mid_dim = 256
         state_dim = vec
         self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
                                  nn.Linear(mid_dim, mid_dim), nn.ReLU(),

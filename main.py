@@ -46,7 +46,8 @@ def train_and_evaluate(args, agent_id=0):
     soft_update_tau = args.soft_update_tau
     del args
 
-    agent.state = env.reset()
+    agent.state, dss, tss = env.reset()
+    agent.process_states(dss, tss)
 
     if_train = True
     while if_train:
@@ -66,7 +67,7 @@ def main():
     "TotalStep: 5e4, TargetReward: 200, UsedTime: 60s"
     args.env = MLA_Wrapper()
     args.reward_scale = 2 ** -1
-    args.target_step = 32
+    args.target_step = 64
 
     train_and_evaluate(args)
 

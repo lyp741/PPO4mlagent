@@ -64,7 +64,7 @@ class MLA_Wrapper():
             for j in range(self.num_agents):
                 info.append({'individual_reward':0})
             self.infos.append(info)
-        return (vis_obs, vec_obs)
+        return (vis_obs, vec_obs), decisionStep, terminalStep
 
     
     def step(self, actions):
