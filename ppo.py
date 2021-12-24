@@ -123,13 +123,14 @@ class AgentPPO:
         
         last_done = 0
         states = np.zeros((self.num_rolls, self.num_agents, env.obs_shape[0]))
-        for r in range(self.num_rolls):
-            for a in range(self.num_agents):
-                if self.last_obs[r][a] is not None:
-                    states[r][a] = self.last_obs[r][a]
+        
         actions = np.zeros((self.num_rolls, self.num_agents))
         a_probs = np.zeros((self.num_rolls, self.num_agents, self.action_dim))
         for i in range(target_step):
+            for r in range(self.num_rolls):
+                for a in range(self.num_agents):
+                    if self.last_obs[r][a] is not None:
+                        states[r][a] = self.last_obs[r][a]
             for r in range(self.num_rolls):
                 action, a_prob = self.select_action((None, states[r]))  # different
                 actions[r] = action
@@ -146,7 +147,7 @@ class AgentPPO:
                 self.last_action[r][a] = actions[r,a].copy()
                 self.last_a_probs[r][a] = a_probs[r,a].copy()
             self.process_states(dss, tss)
-            
+
                 
         
         self.state = state
@@ -192,9 +193,8 @@ class AgentPPO:
                         continue
                     buf_len = buf_state2[1].shape[0]
                     bs = 2 ** 10  # set a smaller 'BatchSize' when out of GPU memory.
-                    buf_value = [self.cri((None, buf_state2[1][i:i+bs])) for i in range(0, buf_len, bs)]
+                    buf_value = self.cri((None, buf_state2[1])).squeeze()
                     next_v = self.cri((None, next_obs)).squeeze()
-                    buf_value = torch.cat(buf_value, dim=0).squeeze()
                     buf_logprob.append(self.act.get_old_logprob(buf_action2, buf_noise2))
                     buf_r_sum2, buf_advantage2 = self.myGAE(buf_len, buf_reward2, buf_mask2, buf_value, next_v)  # detach()
                     # buf_advantage2 = (buf_advantage2 - buf_advantage2.mean()) / buf_advantage2.std()
@@ -215,7 +215,7 @@ class AgentPPO:
         buf_reward = torch.cat(buf_reward, dim=0)
         buf_done = torch.cat(buf_done, dim=0)
         buf_len = buf_state.shape[0]
-        # buf_advantage = (buf_advantage / (buf_advantage.std() + 1e-3))
+        buf_advantage = (buf_advantage / (buf_advantage.std() + 1e-3))
         # buf_r_sum = (buf_r_sum - buf_r_sum.mean()) / (buf_r_sum.std() + 1e-10)
         '''PPO: Surrogate objective of Trust Region'''
                 
@@ -232,7 +232,7 @@ class AgentPPO:
                 next_obs = buf_next_obs[indices]
                 reward = buf_reward[indices]
                 done = buf_done[indices]
-                advantage = (advantage - advantage.mean()) / (advantage.std() + 1e-5)
+                # advantage = (advantage - advantage.mean()) / (advantage.std() + 1e-5)
                 new_logprob, obj_entropy = self.act.get_logprob_entropy(state, action)  # it is obj_actor
                 ratio = (new_logprob - logprob.detach()).exp()
                 surrogate1 = advantage * ratio
