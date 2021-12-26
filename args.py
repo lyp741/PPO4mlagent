@@ -20,7 +20,7 @@ class Arguments:
         '''Arguments for training'''
         self.gamma = 0.99  # discount factor of future rewards
         self.reward_scale = 2 ** 0  # an approximate target reward usually be closed to 256
-        self.learning_rate = 0.00003  # 2 ** -14 ~= 6e-5
+        self.learning_rate = 0.0003  # 2 ** -14 ~= 6e-5
         self.soft_update_tau = 2 ** -8  # 2 ** -8 ~= 5e-3
 
         self.net_dim = 2 ** 9  # the network width

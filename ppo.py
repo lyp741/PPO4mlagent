@@ -31,7 +31,7 @@ class AgentPPO:
         self.ClassAct = ActorDiscretePPO
 
         self.ratio_clip = 0.2  # ratio.clamp(1 - clip, 1 + clip)
-        self.lambda_entropy = 0.02  # could be 0.01~0.05
+        self.lambda_entropy = 0.01  # could be 0.01~0.05
         self.lambda_gae_adv = 0.95  # could be 0.95~0.99, GAE (Generalized Advantage Estimation. ICLR.2016.)
         self.get_reward_sum = None  # self.get_reward_sum_gae if if_use_gae else self.get_reward_sum_raw
         self.trajectory_list = None
@@ -52,7 +52,7 @@ class AgentPPO:
         self.buffer = ReplayBuffer(buffer_size=1e6, batch_size=64, device=self.device, rolls=env.num_rolls, agents=env.num_agents)
         self.num_rolls = env.num_rolls
         self.num_agents = env.num_agents
-        self.clear_buffer()
+        # self.clear_buffer()
         del self.ClassCri, self.ClassAct
 
     def clear_buffer(self):
@@ -81,7 +81,7 @@ class AgentPPO:
                 actions[r] = action
                 a_probs[r] = a_prob
             next_state, reward, done, _, masks, ds, ts = env.step(actions)  # different
-            self.buffer.add((None,state[1]), actions, reward, done, a_probs, masks)  # different
+            self.buffer.add((None,state[1].copy()), actions.copy(), reward.copy(), done.copy(), a_probs.copy(), masks)  # different
 
             for (roll, agent) in masks:
                 state[1][roll][agent] = next_state[1][roll][agent]
@@ -114,12 +114,12 @@ class AgentPPO:
 
                     '''get buf_r_sum, buf_logprob'''
                     bs = 2 ** 10  # set a smaller 'BatchSize' when out of GPU memory.
-                    buf_value = [self.cri_target((None, buf_state2[1][i:i+bs])) for i in range(0, buf_len, bs)]
-                    buf_value = torch.cat(buf_value, dim=0).squeeze()
+                    buf_value = self.cri((None, buf_state2[1])).squeeze()
+                    # buf_value = torch.cat(buf_value, dim=0).squeeze()
                     buf_logprob.append(self.act.get_old_logprob(buf_action2, buf_noise2))
 
-                    buf_r_sum2, buf_advantage2 = self.get_reward_sum_raw(buf_len, buf_reward2, buf_mask2, buf_value)  # detach()
-                    buf_advantage2 = (buf_advantage2 - buf_advantage2.mean()) / (buf_advantage2.std() + 1e-10)
+                    buf_r_sum2, buf_advantage2 = self.get_reward_sum_gae(buf_len, buf_reward2, buf_mask2, buf_value)  # detach()
+                    # buf_advantage2 = (buf_advantage2 - buf_advantage2.mean()) / (buf_advantage2.std() + 1e-10)
                     buf_state.append(buf_state2[1])
                     buf_action.append(buf_action2)
                     buf_r_sum.append(buf_r_sum2)
@@ -130,6 +130,8 @@ class AgentPPO:
         buf_r_sum = torch.cat(buf_r_sum, dim=0)
         buf_logprob = torch.cat(buf_logprob, dim=0)
         buf_advantage = torch.cat(buf_advantage, dim=0)
+        buf_advantage = (buf_advantage - buf_advantage.mean()) / (buf_advantage.std() + 1e-5)
+
         buf_len = buf_state.shape[0]
         '''PPO: Surrogate objective of Trust Region'''
         obj_critic = obj_actor = None
@@ -201,3 +203,9 @@ class AgentPPO:
     def soft_update(target_net, current_net, tau):
         for tar, cur in zip(target_net.parameters(), current_net.parameters()):
             tar.data.copy_(cur.data.__mul__(tau) + tar.data.__mul__(1.0 - tau))
+
+    def save_model(self, path):
+        torch.save(self.act.state_dict(), path)
+
+    def load_model(self, path):
+        self.act.load_state_dict(torch.load(path))
