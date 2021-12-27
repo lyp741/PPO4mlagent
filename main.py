@@ -48,15 +48,21 @@ def train_and_evaluate(args, agent_id=0):
 
     agent.state = env.reset()
 
+    try:
+        agent.load_model('model.pkl')
+        print('loded model')
+    except:
+        print('no model')
+        if_train = False
     if_train = True
-    while if_train:
+    while True:
         with torch.no_grad():
             trajectory_list = agent.explore_env(env, target_step)
             # steps, r_exp = update_buffer(trajectory_list)
 
-        logging_tuple = agent.update_net(batch_size, repeat_times, soft_update_tau)
-
-
+        if if_train:
+            logging_tuple = agent.update_net(batch_size, repeat_times, soft_update_tau)
+            agent.save_model('model.pkl')
 
 def main():
     args = Arguments()  # hyper-parameters of on-policy is different from off-policy
@@ -66,7 +72,8 @@ def main():
     "TotalStep: 5e4, TargetReward: 200, UsedTime: 60s"
     args.env = MLA_Wrapper()
     args.reward_scale = 2 ** -1
-    args.target_step = 200
+
+    args.target_step = 512
 
     train_and_evaluate(args)
 
