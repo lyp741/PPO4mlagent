@@ -125,8 +125,8 @@ class MLA_Wrapper():
             agent = agent_id % self.num_agents
             # roll = agent_id
             # agent = 0
-            vis_obs[roll, agent] = ts.obs[0]
-            vec_obs[roll, agent] = ts.obs[1]
+            # vis_obs[roll, agent] = ts.obs[0]
+            # vec_obs[roll, agent] = ts.obs[1]
             rewards[roll, agent] = ts.reward + ts.group_reward
             dones[roll, agent] = True
             masks.append((roll, agent))
@@ -142,7 +142,7 @@ class MLA_Wrapper():
         #     dones[roll, agent] = True if i in terminalStep else False
         
         # dones = np.array([True if idx in terminalStep else False for idx in range(self.num_agents)])
-        return (vis_obs, vec_obs), rewards, dones, self.infos, masks
+        return (vis_obs, vec_obs), rewards, dones, self.infos, masks, decisionStep, terminalStep
 
     def close(self):
         self.env.close()

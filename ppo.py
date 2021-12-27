@@ -6,7 +6,7 @@ import torch.nn as nn
 import numpy as np
 import numpy.random as rd
 from copy import deepcopy
-from vec_model import ActorDiscretePPO, Critic
+from model import ActorDiscretePPO, Critic
 from buffer import ReplayBuffer
 import random
 from torch.utils.tensorboard import SummaryWriter
@@ -53,6 +53,8 @@ class AgentPPO:
         self.num_rolls = env.num_rolls
         self.num_agents = env.num_agents
         # self.clear_buffer()
+        self.cumulative_reward = []
+        self.rewards = [[[] for _ in range(self.num_agents)] for _ in range(self.num_rolls)]
         del self.ClassCri, self.ClassAct
 
     def clear_buffer(self):
@@ -77,14 +79,19 @@ class AgentPPO:
         a_probs = np.zeros((rolls, agents, self.action_dim))
         for i in range(target_step):
             for r in range(rolls):
-                action, a_prob = self.select_action((None, state[1][r]))  # different
+                action, a_prob = self.select_action((state[0][r], state[1][r]))  # different
                 actions[r] = action
                 a_probs[r] = a_prob
             next_state, reward, done, _, masks, ds, ts = env.step(actions)  # different
-            self.buffer.add((None,state[1].copy()), actions.copy(), reward.copy(), done.copy(), a_probs.copy(), masks)  # different
+            self.buffer.add((state[0].copy(),state[1].copy()), actions.copy(), reward.copy(), done.copy(), a_probs.copy(), masks)  # different
 
             for (roll, agent) in masks:
+                state[0][roll][agent] = next_state[0][roll][agent]
                 state[1][roll][agent] = next_state[1][roll][agent]
+                self.rewards[roll][agent].append(reward[roll][agent].copy())
+                if done[roll][agent]:
+                    self.cumulative_reward.append(sum(self.rewards[roll][agent]))
+                    self.rewards[roll][agent] = []
         self.state = state
 
         '''splice list'''
@@ -96,7 +103,8 @@ class AgentPPO:
 
     def update_net(self, batch_size, repeat_times, soft_update_tau):
 
-        buf_state = []
+        buf_vis_obs = []
+        buf_vec_obs = []
         buf_action = []
         buf_r_sum = []
         buf_logprob = []
@@ -111,35 +119,38 @@ class AgentPPO:
                     if buf_state2 == None or buf_state2[1].shape[0] == 1:
                         continue
                     buf_len = buf_state2[1].shape[0]
-
+                    vis_obs = buf_state2[0]
+                    vec_obs = buf_state2[1]
                     '''get buf_r_sum, buf_logprob'''
                     bs = 2 ** 10  # set a smaller 'BatchSize' when out of GPU memory.
-                    buf_value = self.cri((None, buf_state2[1])).squeeze()
+                    buf_value = self.cri((vis_obs, vec_obs)).squeeze()
                     # buf_value = torch.cat(buf_value, dim=0).squeeze()
                     buf_logprob.append(self.act.get_old_logprob(buf_action2, buf_noise2))
 
                     buf_r_sum2, buf_advantage2 = self.get_reward_sum_gae(buf_len, buf_reward2, buf_mask2, buf_value)  # detach()
                     # buf_advantage2 = (buf_advantage2 - buf_advantage2.mean()) / (buf_advantage2.std() + 1e-10)
-                    buf_state.append(buf_state2[1])
+                    buf_vis_obs.append(vis_obs)
+                    buf_vec_obs.append(vec_obs)
                     buf_action.append(buf_action2)
                     buf_r_sum.append(buf_r_sum2)
                     buf_advantage.append(buf_advantage2)
 
-        buf_state = torch.cat(buf_state, dim=0)
+        buf_vis_obs = torch.cat(buf_vis_obs, dim=0)
+        buf_vec_obs = torch.cat(buf_vec_obs, dim=0)
         buf_action = torch.cat(buf_action, dim=0)
         buf_r_sum = torch.cat(buf_r_sum, dim=0)
         buf_logprob = torch.cat(buf_logprob, dim=0)
         buf_advantage = torch.cat(buf_advantage, dim=0)
         buf_advantage = (buf_advantage - buf_advantage.mean()) / (buf_advantage.std() + 1e-5)
 
-        buf_len = buf_state.shape[0]
+        buf_len = buf_vis_obs.shape[0]
         '''PPO: Surrogate objective of Trust Region'''
         obj_critic = obj_actor = None
         for _ in range(3):
             # indices = torch.randint(buf_len, size=(128,), requires_grad=False, device=self.device)
             for i in range(int(buf_len/128)-1):
                 indices = torch.randint(buf_len, size=(128,), requires_grad=False, device=self.device)
-                state = (None, buf_state[indices])
+                state = (buf_vis_obs[indices], buf_vec_obs[indices])
                 action = buf_action[indices]
                 r_sum = buf_r_sum[indices]
                 logprob = buf_logprob[indices]
@@ -163,6 +174,9 @@ class AgentPPO:
         writer.add_scalar('PPO/obj_critic', obj_critic.item(), step)
         writer.add_scalar('PPO/entropy', obj_entropy.item(), step)
         writer.add_scalar('PPO/advantage', advantage.mean().item(), step)
+        if len(self.cumulative_reward)>1:
+            self.cumulative_reward = self.cumulative_reward[-32:]
+            writer.add_scalar('PPO/rewards', sum(self.cumulative_reward)/len(self.cumulative_reward), step)
         self.buffer.clear()
         
     def get_reward_sum_raw(self, buf_len, buf_reward, buf_mask, buf_value) -> (torch.Tensor, torch.Tensor):

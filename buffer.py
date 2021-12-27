@@ -31,7 +31,7 @@ class ReplayBuffer:
             agent = i[1]
             vis_obs = state[0]
             vec_obs = state[1]
-            if state[0]:
+            if state[0] is not None:
                 vis_o = vis_obs[roll][agent]
             else:
                 vis_o = None
@@ -74,7 +74,7 @@ class ReplayBuffer:
         #     print('double 1!')
         # self.memory[roll][agent][:] = memo[i+1:]
         experiences = memo[:]
-        if experiences[0].state[0]:
+        if experiences[0].state[0] is not None:
             vis_obs = torch.from_numpy(np.array([e.state[0] for e in experiences if e is not None])).float().to(self.device)
         else:
             vis_obs = None
