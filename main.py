@@ -47,14 +47,14 @@ def train_and_evaluate(args, agent_id=0):
     del args
 
     agent.state = env.reset()
+    if_train = False
 
     try:
         agent.load_model('model.pkl')
         print('loded model')
     except:
         print('no model')
-        if_train = False
-    if_train = True
+        if_train = True
     while True:
         with torch.no_grad():
             trajectory_list = agent.explore_env(env, target_step)
@@ -73,7 +73,7 @@ def main():
     args.env = MLA_Wrapper()
     args.reward_scale = 2 ** -1
 
-    args.target_step = 512
+    args.target_step = 128
 
     train_and_evaluate(args)
 

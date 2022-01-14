@@ -5,48 +5,54 @@ from typing import Tuple
 from math import floor
 
 class ActorDiscretePPO(nn.Module):
-    def __init__(self,  input_shape, vec_shape=None,
+    def __init__(self,  vis_shape=0, vec_shape=0,
     encoding_size=64,
     output_size=7):
         super().__init__()
-        height = input_shape[0]
-        width = input_shape[1]
-        initial_channels = input_shape[2]
+        self.vis_shape = vis_shape
+        if vis_shape:
+          height = vis_shape[0]
+          width = vis_shape[1]
+          initial_channels = vis_shape[2]
+          conv_1_hw = self.conv_output_shape((height, width), 8, 4)
+          conv_2_hw = self.conv_output_shape(conv_1_hw, 4, 2)
+          self.final_flat = conv_2_hw[0] * conv_2_hw[1] * 32
+          self.conv1 = torch.nn.Conv2d(initial_channels, 16, [8, 8], [4, 4])
+          self.conv2 = torch.nn.Conv2d(16, 32, [4, 4], [2, 2])
+        else:
+          self.final_flat = 0
         self.vec_shape = vec_shape
-        conv_1_hw = self.conv_output_shape((height, width), 8, 4)
-        conv_2_hw = self.conv_output_shape(conv_1_hw, 4, 2)
-        self.final_flat = conv_2_hw[0] * conv_2_hw[1] * 32
-        self.conv1 = torch.nn.Conv2d(initial_channels, 16, [8, 8], [4, 4])
-        self.conv2 = torch.nn.Conv2d(16, 32, [4, 4], [2, 2])
         self.dense1 = torch.nn.Linear(self.final_flat+self.vec_shape, encoding_size)
         self.dense2 = torch.nn.Linear(encoding_size, output_size)
-
-
         self.action_dim = output_size
         self.soft_max = nn.Softmax(dim=-1)
         self.Categorical = torch.distributions.Categorical
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     def forward(self, state):
+      if self.vis_shape:
         visual_obs = torch.tensor(state[0]).to(self.device)
-        vec_obs = torch.tensor(state[1]).to(self.device)
         visual_obs = visual_obs.float()
-        vec_obs = vec_obs.float()
         visual_obs = visual_obs.permute(0, 3, 1, 2)
         conv_1 = torch.relu(self.conv1(visual_obs))
         conv_2 = torch.relu(self.conv2(conv_1))
         conv_out = conv_2.reshape([-1, self.final_flat])
+      vec_obs = torch.tensor(state[1]).to(self.device)
+      vec_obs = vec_obs.float()
+      if self.vis_shape:
         concat = torch.cat((conv_out, vec_obs), 1)
-        hidden = self.dense1(concat)
-        hidden = torch.relu(hidden)
-        hidden = self.dense2(hidden)
-        return hidden
+      else:
+        concat = vec_obs
+      hidden = self.dense1(concat)
+      hidden = torch.relu(hidden)
+      hidden = self.dense2(hidden)
+      return hidden
 
     def get_action(self, state):
         a_prob = self.soft_max(self.forward(state))
         # action = Categorical(a_prob).sample()
         samples_2d = torch.multinomial(a_prob, num_samples=1, replacement=True)
-        action = samples_2d.reshape(state[0].shape[0])
+        action = samples_2d.reshape(state[1].shape[0])
         return action, a_prob
 
     def get_logprob_entropy(self, state, a_int):
@@ -82,7 +88,7 @@ class ActorDiscretePPO(nn.Module):
 class Critic(torch.nn.Module):
   def __init__(
     self,
-    input_shape: Tuple[int, int, int],
+    vis_shape: Tuple[int, int, int],
     vec_shape=None,
     output_size=7,
     encoding_size=64
@@ -93,29 +99,40 @@ class Critic(torch.nn.Module):
     tensors)
     """
     super(Critic, self).__init__()
-    height = input_shape[0]
-    width = input_shape[1]
-    initial_channels = input_shape[2]
+    self.vis_shape = vis_shape
+    if vis_shape:
+      height = vis_shape[0]
+      width = vis_shape[1]
+      initial_channels = vis_shape[2]
+      conv_1_hw = self.conv_output_shape((height, width), 8, 4)
+      conv_2_hw = self.conv_output_shape(conv_1_hw, 4, 2)
+      self.final_flat = conv_2_hw[0] * conv_2_hw[1] * 32
+      self.conv1 = torch.nn.Conv2d(initial_channels, 16, [8, 8], [4, 4])
+      self.conv2 = torch.nn.Conv2d(16, 32, [4, 4], [2, 2])
+    else:
+      self.final_flat = 0
     self.vec_shape = vec_shape
-    conv_1_hw = self.conv_output_shape((height, width), 8, 4)
-    conv_2_hw = self.conv_output_shape(conv_1_hw, 4, 2)
-    self.final_flat = conv_2_hw[0] * conv_2_hw[1] * 32
-    self.conv1 = torch.nn.Conv2d(initial_channels, 16, [8, 8], [4, 4])
-    self.conv2 = torch.nn.Conv2d(16, 32, [4, 4], [2, 2])
     self.dense1 = torch.nn.Linear(self.final_flat+self.vec_shape, encoding_size)
     self.dense2 = torch.nn.Linear(encoding_size, 1)
+    self.action_dim = 1
+    self.soft_max = nn.Softmax(dim=-1)
+    self.Categorical = torch.distributions.Categorical
     self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-  def forward(self, state) -> torch.tensor:
-    visual_obs = torch.tensor(state[0]).to(self.device)
+  def forward(self, state):
+    if self.vis_shape:
+      visual_obs = torch.tensor(state[0]).to(self.device)
+      visual_obs = visual_obs.float()
+      visual_obs = visual_obs.permute(0, 3, 1, 2)
+      conv_1 = torch.relu(self.conv1(visual_obs))
+      conv_2 = torch.relu(self.conv2(conv_1))
+      conv_out = conv_2.reshape([-1, self.final_flat])
     vec_obs = torch.tensor(state[1]).to(self.device)
-    visual_obs = visual_obs.float()
     vec_obs = vec_obs.float()
-    visual_obs = visual_obs.permute(0, 3, 1, 2)
-    conv_1 = torch.relu(self.conv1(visual_obs))
-    conv_2 = torch.relu(self.conv2(conv_1))
-    conv_out = conv_2.reshape([-1, self.final_flat])
-    concat = torch.cat((conv_out, vec_obs), 1)
+    if self.vis_shape:
+      concat = torch.cat((conv_out, vec_obs), 1)
+    else:
+      concat = vec_obs
     hidden = self.dense1(concat)
     hidden = torch.relu(hidden)
     hidden = self.dense2(hidden)

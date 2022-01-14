@@ -79,14 +79,23 @@ class AgentPPO:
         a_probs = np.zeros((rolls, agents, self.action_dim))
         for i in range(target_step):
             for r in range(rolls):
-                action, a_prob = self.select_action((state[0][r], state[1][r]))  # different
+                if state[0] is not None:
+                    vis_state = state[0][r]
+                else:
+                    vis_state = None
+                action, a_prob = self.select_action((vis_state, state[1][r]))  # different
                 actions[r] = action
                 a_probs[r] = a_prob
             next_state, reward, done, _, masks, ds, ts = env.step(actions)  # different
-            self.buffer.add((state[0].copy(),state[1].copy()), actions.copy(), reward.copy(), done.copy(), a_probs.copy(), masks)  # different
+            if vis_state is not None:
+                vis_state = state[0].copy()
+            else:
+                vis_state = None
+            self.buffer.add((vis_state,state[1].copy()), actions.copy(), reward.copy(), done.copy(), a_probs.copy(), masks)  # different
 
             for (roll, agent) in masks:
-                state[0][roll][agent] = next_state[0][roll][agent]
+                if state[0] is not None:
+                    state[0][roll][agent] = next_state[0][roll][agent]
                 state[1][roll][agent] = next_state[1][roll][agent]
                 self.rewards[roll][agent].append(reward[roll][agent].copy())
                 if done[roll][agent]:
@@ -135,8 +144,10 @@ class AgentPPO:
                     buf_action.append(buf_action2)
                     buf_r_sum.append(buf_r_sum2)
                     buf_advantage.append(buf_advantage2)
-
-        buf_vis_obs = torch.cat(buf_vis_obs, dim=0)
+        if buf_vis_obs[0] is not None:
+            buf_vis_obs = torch.cat(buf_vis_obs, dim=0)
+        else:
+            buf_vis_obs = None
         buf_vec_obs = torch.cat(buf_vec_obs, dim=0)
         buf_action = torch.cat(buf_action, dim=0)
         buf_r_sum = torch.cat(buf_r_sum, dim=0)
@@ -144,14 +155,18 @@ class AgentPPO:
         buf_advantage = torch.cat(buf_advantage, dim=0)
         buf_advantage = (buf_advantage - buf_advantage.mean()) / (buf_advantage.std() + 1e-5)
 
-        buf_len = buf_vis_obs.shape[0]
+        buf_len = buf_vec_obs.shape[0]
         '''PPO: Surrogate objective of Trust Region'''
         obj_critic = obj_actor = None
         for _ in range(3):
             # indices = torch.randint(buf_len, size=(128,), requires_grad=False, device=self.device)
             for i in range(int(buf_len/128)-1):
                 indices = torch.randint(buf_len, size=(128,), requires_grad=False, device=self.device)
-                state = (buf_vis_obs[indices], buf_vec_obs[indices])
+                if buf_vis_obs is not None:
+                    vis = buf_vis_obs[indices]
+                else:
+                    vis = None
+                state = (vis, buf_vec_obs[indices])
                 action = buf_action[indices]
                 r_sum = buf_r_sum[indices]
                 logprob = buf_logprob[indices]

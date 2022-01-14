@@ -35,8 +35,28 @@ class MLA_Wrapper():
         decisionStep, terminalStep = self.env.get_steps(self.behavior_name)
         self.decisionStep = decisionStep
         self.terminalStep = terminalStep
-        vis_obs_raw = decisionStep.obs[0] # 2 obs, 0 is grid sensor. (agents*platform, 20, 20, 7)
-        vec_obs_raw = decisionStep.obs[1] # 2 obs, 1 is vector. (agents*platform, 10)
+        self.vis_idx = []
+        self.vec_idx = []
+        for i in range(len(decisionStep.obs)):
+            obs_i = decisionStep.obs[i]
+            obs_i_shape = obs_i.shape
+            if len(obs_i_shape) == 4:
+                self.vis_idx.append(i)
+            else:
+                self.vec_idx.append(i)
+        vec_obs_raw = None
+        vis_obs_raw = None
+        if self.vis_idx:
+            vis_obs_raw = decisionStep.obs[self.vis_idx[0]]
+        if self.vec_idx:
+            for i in self.vec_idx:
+                tmp = decisionStep.obs[i]
+                if vec_obs_raw is not None:
+                    vec_obs_raw = np.concatenate((vec_obs_raw, tmp), axis=1)
+                else:
+                    vec_obs_raw = tmp
+        # vis_obs_raw = decisionStep.obs[0] # 2 obs, 0 is grid sensor. (agents*platform, 20, 20, 7)
+        # vec_obs_raw = decisionStep.obs[1] # 2 obs, 1 is vector. (agents*platform, 10)
         groupId = decisionStep.group_id
         self.groupId = groupId
         self.num_rolls = np.unique(groupId).shape[0]
@@ -45,18 +65,29 @@ class MLA_Wrapper():
         self.num_agents = int(len(groupId) / self.num_rolls)
         # self.num_agents = 1
         print("num agents: ", self.num_agents)
-        vis_obs = np.zeros((self.num_rolls, self.num_agents)+vis_obs_raw.shape[1:])
-        vec_obs = np.zeros((self.num_rolls, self.num_agents)+vec_obs_raw.shape[1:])
-        self.vis_obs_shape = vis_obs_raw.shape[1:]
-        self.vec_obs_shape = vec_obs_raw.shape[1:][0]
+        if self.vis_idx:
+            vis_obs = np.zeros((self.num_rolls, self.num_agents)+vis_obs_raw.shape[1:])
+            self.vis_obs_shape = vis_obs_raw.shape[1:]
+        else:
+            vis_obs = None
+            self.vis_obs_shape = 0
+        if self.vec_idx:
+            vec_obs = np.zeros((self.num_rolls, self.num_agents)+vec_obs_raw.shape[1:])
+            self.vec_obs_shape = vec_obs_raw.shape[1:][0]
+        else:
+            vec_obs = None
+            self.vec_obs_shape = 0
+        
         reward = decisionStep.reward #(agents*platform,)
 
         rewards = np.zeros((self.num_rolls, self.num_agents, 1))
-        for i in range(vis_obs_raw.shape[0]):
+        for i in range(self.num_agents * self.num_rolls):
             roll = groupId[i]-1
             agent = i%self.num_agents
-            vis_obs[roll, agent] = vis_obs_raw[i]
-            vec_obs[roll, agent] = vec_obs_raw[i]
+            if vis_obs is not None:
+                vis_obs[roll, agent] = vis_obs_raw[i]
+            if vec_obs is not None:
+                vec_obs[roll, agent] = vec_obs_raw[i]
             rewards[roll, agent] = reward[i]
         self.infos = []
         for i in range(self.num_rolls):
@@ -99,8 +130,14 @@ class MLA_Wrapper():
         reward = decisionStep.reward #(agents*platform,)
         groupId = decisionStep.group_id #[agents*platform]
 
-        vis_obs = np.zeros((self.num_rolls, self.num_agents)+self.vis_obs_shape)
-        vec_obs = np.zeros((self.num_rolls, self.num_agents)+(self.vec_obs_shape,))
+        if self.vis_obs_shape:
+            vis_obs = np.zeros((self.num_rolls, self.num_agents)+self.vis_obs_shape)
+        else:
+            vis_obs = None
+        if self.vec_obs_shape:
+            vec_obs = np.zeros((self.num_rolls, self.num_agents)+(self.vec_obs_shape,))
+        else:
+            vec_obs = None
         rewards = np.zeros((self.num_rolls, self.num_agents, 1))
         dones = np.zeros((self.num_rolls, self.num_agents),dtype=np.bool)
         infos = []
@@ -112,8 +149,17 @@ class MLA_Wrapper():
             agent = agent_id % self.num_agents
             # roll = agent_id
             # agent = 0
-            vis_obs[roll, agent] = ds.obs[0]
-            vec_obs[roll, agent] = ds.obs[1]
+            if vis_obs is not None:
+                for i in self.vis_idx:
+                    vis_obs[roll, agent] = ds.obs[i]
+            if vec_obs is not None:
+                tmp = None
+                for i in self.vec_idx:
+                    if tmp is not None:
+                        tmp = np.concatenate((tmp, ds.obs[i]), axis=0)
+                    else:
+                        tmp = ds.obs[i]
+                vec_obs[roll, agent] = tmp
             rewards[roll, agent] = ds.reward + ds.group_reward
             dones[roll, agent] = False
             self.infos[roll][agent]['individual_reward'] = ds.reward
