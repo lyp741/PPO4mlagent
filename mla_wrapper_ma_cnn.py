@@ -65,6 +65,15 @@ class MLA_Wrapper():
         self.num_agents = int(len(groupId) / self.num_rolls)
         # self.num_agents = 1
         print("num agents: ", self.num_agents)
+        agentsidx_in_roll = {}
+        self.agentid2idx = {}
+        for i in range(self.num_rolls * self.num_agents):
+            if groupId[i]-1 not in agentsidx_in_roll:
+                agentsidx_in_roll[groupId[i]-1] = 0
+            else:
+                agentsidx_in_roll[groupId[i]-1] += 1
+            self.agentid2idx[i] = agentsidx_in_roll[groupId[i]-1]
+
         if self.vis_idx:
             vis_obs = np.zeros((self.num_rolls, self.num_agents)+vis_obs_raw.shape[1:])
             self.vis_obs_shape = vis_obs_raw.shape[1:]
@@ -83,7 +92,7 @@ class MLA_Wrapper():
         rewards = np.zeros((self.num_rolls, self.num_agents, 1))
         for i in range(self.num_agents * self.num_rolls):
             roll = groupId[i]-1
-            agent = i%self.num_agents
+            agent = self.agentid2idx[i]
             if vis_obs is not None:
                 vis_obs[roll, agent] = vis_obs_raw[i]
             if vec_obs is not None:
@@ -146,7 +155,7 @@ class MLA_Wrapper():
         for agent_id in decisionStep:
             ds = decisionStep[agent_id]
             roll = ds.group_id - 1
-            agent = agent_id % self.num_agents
+            agent = self.agentid2idx[agent_id]
             # roll = agent_id
             # agent = 0
             if vis_obs is not None:
@@ -168,7 +177,7 @@ class MLA_Wrapper():
         for agent_id in terminalStep:
             ts = terminalStep[agent_id]
             roll = ts.group_id - 1
-            agent = agent_id % self.num_agents
+            agent = self.agentid2idx[agent_id]
             # roll = agent_id
             # agent = 0
             # vis_obs[roll, agent] = ts.obs[0]
