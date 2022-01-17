@@ -124,7 +124,7 @@ class MLA_Wrapper():
         for i in self.decisionStep:
             a = np.zeros((1,1))
             # a[0] = np.argmax(actions[self.groupId[i]-1,i%self.num_agents])
-            a[0] = actions[self.groupId[i]-1, i%self.num_agents]
+            a[0] = actions[self.groupId[i]-1, self.agentid2idx[i]]
             # a[0] = actions[i][0]
             a = ActionTuple(discrete=a)
             # self.env.set_actions(self.behavior_name, action)

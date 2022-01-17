@@ -54,7 +54,7 @@ def train_and_evaluate(args, agent_id=0):
         print('loded model')
     except:
         print('no model')
-        if_train = True
+    if_train = True
     while True:
         with torch.no_grad():
             trajectory_list = agent.explore_env(env, target_step)
@@ -73,7 +73,7 @@ def main():
     args.env = MLA_Wrapper()
     args.reward_scale = 2 ** -1
 
-    args.target_step = 128
+    args.target_step = 64
 
     train_and_evaluate(args)
 
