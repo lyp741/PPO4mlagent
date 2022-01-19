@@ -95,8 +95,8 @@ class AgentPPO:
 
             for (roll, agent) in masks:
                 if state[0] is not None:
-                    state[0][roll][agent] = next_state[0][roll][agent]
-                state[1][roll][agent] = next_state[1][roll][agent]
+                    state[0][roll][agent] = next_state[0][roll][agent].copy()
+                state[1][roll][agent] = next_state[1][roll][agent].copy()
                 self.rewards[roll][agent].append(reward[roll][agent].copy())
                 if done[roll][agent]:
                     self.cumulative_reward.append(sum(self.rewards[roll][agent]))
@@ -133,7 +133,7 @@ class AgentPPO:
                     '''get buf_r_sum, buf_logprob'''
                     bs = 2 ** 10  # set a smaller 'BatchSize' when out of GPU memory.
 
-                    buf_value = self.cri((vis_obs, vec_obs)).squeeze()
+                    buf_value = self.cri_target((vis_obs, vec_obs)).squeeze()
                     # buf_value = torch.cat(buf_value, dim=0).squeeze()
                     buf_logprob.append(self.act.get_old_logprob(buf_action2, buf_noise2))
 
@@ -160,8 +160,8 @@ class AgentPPO:
         obj_critic = obj_actor = None
         for _ in range(3):
             # indices = torch.randint(buf_len, size=(128,), requires_grad=False, device=self.device)
-            for i in range(int(buf_len/128)-1):
-                indices = torch.randint(buf_len, size=(128,), requires_grad=False, device=self.device)
+            for i in range(int(buf_len/1024)-1):
+                indices = torch.randint(buf_len, size=(1024,), requires_grad=False, device=self.device)
                 if buf_vis_obs is not None:
                     vis = buf_vis_obs[indices]
                 else:

@@ -73,7 +73,7 @@ def main():
     args.env = MLA_Wrapper()
     args.reward_scale = 2 ** -1
 
-    args.target_step = 64
+    args.target_step = 128
 
     train_and_evaluate(args)
 

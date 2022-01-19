@@ -67,12 +67,13 @@ class MLA_Wrapper():
         print("num agents: ", self.num_agents)
         agentsidx_in_roll = {}
         self.agentid2idx = {}
-        for i in range(self.num_rolls * self.num_agents):
-            if groupId[i]-1 not in agentsidx_in_roll:
-                agentsidx_in_roll[groupId[i]-1] = 0
+        for i in decisionStep:
+            gid = decisionStep[i].group_id
+            if gid-1 not in agentsidx_in_roll:
+                agentsidx_in_roll[gid-1] = 0
             else:
-                agentsidx_in_roll[groupId[i]-1] += 1
-            self.agentid2idx[i] = agentsidx_in_roll[groupId[i]-1]
+                agentsidx_in_roll[gid-1] += 1
+            self.agentid2idx[i] = agentsidx_in_roll[gid-1]
 
         if self.vis_idx:
             vis_obs = np.zeros((self.num_rolls, self.num_agents)+vis_obs_raw.shape[1:])
@@ -90,8 +91,8 @@ class MLA_Wrapper():
         reward = decisionStep.reward #(agents*platform,)
 
         rewards = np.zeros((self.num_rolls, self.num_agents, 1))
-        for i in range(self.num_agents * self.num_rolls):
-            roll = groupId[i]-1
+        for i in decisionStep:
+            roll = decisionStep[i].group_id-1
             agent = self.agentid2idx[i]
             if vis_obs is not None:
                 vis_obs[roll, agent] = vis_obs_raw[i]
@@ -124,7 +125,7 @@ class MLA_Wrapper():
         for i in self.decisionStep:
             a = np.zeros((1,1))
             # a[0] = np.argmax(actions[self.groupId[i]-1,i%self.num_agents])
-            a[0] = actions[self.groupId[i]-1, self.agentid2idx[i]]
+            a[0] = actions[self.decisionStep[i].group_id-1, self.agentid2idx[i]]
             # a[0] = actions[i][0]
             a = ActionTuple(discrete=a)
             # self.env.set_actions(self.behavior_name, action)
