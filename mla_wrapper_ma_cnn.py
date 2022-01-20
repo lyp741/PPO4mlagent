@@ -74,7 +74,8 @@ class MLA_Wrapper():
             else:
                 agentsidx_in_roll[gid-1] += 1
             self.agentid2idx[i] = agentsidx_in_roll[gid-1]
-
+        print('ds.group_id: ', decisionStep.group_id)
+        print('agentid2idx: ', self.agentid2idx)
         if self.vis_idx:
             vis_obs = np.zeros((self.num_rolls, self.num_agents)+vis_obs_raw.shape[1:])
             self.vis_obs_shape = vis_obs_raw.shape[1:]

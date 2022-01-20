@@ -183,7 +183,7 @@ class AgentPPO:
                 value = self.cri(state).squeeze(1)  # critic network predicts the reward_sum (Q value) of state
                 obj_critic = self.criterion(value, r_sum) / (r_sum.std() + 1e-6)
                 self.optim_update(self.cri_optim, obj_critic)
-                self.soft_update(self.cri_target, self.cri, soft_update_tau) if self.cri_target is not self.cri else None
+                self.soft_update(self.cri_target, self.cri, soft_update_tau)
 
         # self.buffer.clear()
         writer.add_scalar('PPO/obj_actor', obj_actor.item(), step)
