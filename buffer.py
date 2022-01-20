@@ -75,15 +75,15 @@ class ReplayBuffer:
         # self.memory[roll][agent][:] = memo[i+1:]
         experiences = memo[:]
         if experiences[0].state[0] is not None:
-            vis_obs = torch.from_numpy(np.array([e.state[0] for e in experiences if e is not None])).float().to(self.device)
+            vis_obs = torch.from_numpy(np.array([e.state[0] for e in experiences if e is not None])).float()
         else:
             vis_obs = None
-        vec_obs = torch.from_numpy(np.array([e.state[1] for e in experiences if e is not None])).float().to(self.device)
-        actions = torch.from_numpy(np.array([e.action for e in experiences if e is not None])).long().to(self.device)
-        rewards = torch.from_numpy(np.array([e.reward for e in experiences if e is not None])).float().to(self.device)
+        vec_obs = torch.from_numpy(np.array([e.state[1] for e in experiences if e is not None])).float()
+        actions = torch.from_numpy(np.array([e.action for e in experiences if e is not None])).long()
+        rewards = torch.from_numpy(np.array([e.reward for e in experiences if e is not None])).float()
 
-        dones = torch.from_numpy(np.array([e.done for e in experiences if e is not None]).astype(np.uint8)).float().to(self.device)
-        a_probs = torch.from_numpy(np.array([e.a_probs for e in experiences if e is not None])).float().to(self.device)
+        dones = torch.from_numpy(np.array([e.done for e in experiences if e is not None]).astype(np.uint8)).float()
+        a_probs = torch.from_numpy(np.array([e.a_probs for e in experiences if e is not None])).float()
         return ((vis_obs, vec_obs), actions, rewards.squeeze(), dones, a_probs)
 
     def clear(self):

@@ -133,7 +133,7 @@ class AgentPPO:
                     '''get buf_r_sum, buf_logprob'''
                     bs = 2 ** 10  # set a smaller 'BatchSize' when out of GPU memory.
 
-                    buf_value = self.cri_target((vis_obs, vec_obs)).squeeze()
+                    buf_value = self.cri_target((vis_obs.to(self.device), vec_obs.to(self.device))).squeeze().cpu()
                     # buf_value = torch.cat(buf_value, dim=0).squeeze()
                     buf_logprob.append(self.act.get_old_logprob(buf_action2, buf_noise2))
 
@@ -166,11 +166,11 @@ class AgentPPO:
                     vis = buf_vis_obs[indices]
                 else:
                     vis = None
-                state = (vis, buf_vec_obs[indices])
-                action = buf_action[indices]
-                r_sum = buf_r_sum[indices]
-                logprob = buf_logprob[indices]
-                advantage = buf_advantage[indices]
+                state = (vis.to(self.device), buf_vec_obs[indices].to(self.device))
+                action = buf_action[indices].to(self.device)
+                r_sum = buf_r_sum[indices].to(self.device)
+                logprob = buf_logprob[indices].to(self.device)
+                advantage = buf_advantage[indices].to(self.device)
                 # advantage = (advantage - advantage.mean()) / (advantage.std() + 1e-5)
                 new_logprob, obj_entropy = self.act.get_logprob_entropy(state, action)  # it is obj_actor
                 ratio = (new_logprob - logprob.detach()).exp()
