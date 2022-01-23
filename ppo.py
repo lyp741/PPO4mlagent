@@ -36,6 +36,7 @@ class AgentPPO:
         self.get_reward_sum = None  # self.get_reward_sum_gae if if_use_gae else self.get_reward_sum_raw
         self.trajectory_list = None
         self.replay = None
+        self.if_use_cri_target = True
 
     def init(self, net_dim, vis_obs_shape, vec_obs_shape, action_dim, env, learning_rate=1e-4, if_use_gae=False, gpu_id=0):
         self.device = torch.device(f"cuda:{gpu_id}" if (torch.cuda.is_available() and (gpu_id >= 0)) else "cpu")
@@ -153,7 +154,7 @@ class AgentPPO:
         buf_r_sum = torch.cat(buf_r_sum, dim=0)
         buf_logprob = torch.cat(buf_logprob, dim=0)
         buf_advantage = torch.cat(buf_advantage, dim=0)
-        buf_advantage = (buf_advantage - buf_advantage.mean()) / (buf_advantage.std() + 1e-5)
+        # buf_advantage = (buf_advantage - buf_advantage.mean()) / (buf_advantage.std() + 1e-5)
 
         buf_len = buf_vec_obs.shape[0]
         '''PPO: Surrogate objective of Trust Region'''
@@ -171,7 +172,7 @@ class AgentPPO:
                 r_sum = buf_r_sum[indices].to(self.device)
                 logprob = buf_logprob[indices].to(self.device)
                 advantage = buf_advantage[indices].to(self.device)
-                # advantage = (advantage - advantage.mean()) / (advantage.std() + 1e-5)
+                advantage = (advantage - advantage.mean()) / (advantage.std() + 1e-5)
                 new_logprob, obj_entropy = self.act.get_logprob_entropy(state, action)  # it is obj_actor
                 ratio = (new_logprob - logprob.detach()).exp()
                 surrogate1 = advantage * ratio
