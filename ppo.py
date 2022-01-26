@@ -49,7 +49,7 @@ class AgentPPO:
         self.act_target = deepcopy(self.act) if self.if_use_act_target else self.act
 
         self.cri_optim = torch.optim.Adam(self.cri.parameters(), learning_rate)
-        self.act_optim = torch.optim.Adam(self.act.parameters(), learning_rate) if self.ClassAct else self.cri
+        self.act_optim = torch.optim.Adam(self.act.parameters(), learning_rate)
         self.buffer = ReplayBuffer(buffer_size=1e6, batch_size=64, device=self.device, rolls=env.num_rolls, agents=env.num_agents)
         self.num_rolls = env.num_rolls
         self.num_agents = env.num_agents
@@ -154,7 +154,7 @@ class AgentPPO:
         buf_r_sum = torch.cat(buf_r_sum, dim=0)
         buf_logprob = torch.cat(buf_logprob, dim=0)
         buf_advantage = torch.cat(buf_advantage, dim=0)
-        # buf_advantage = (buf_advantage - buf_advantage.mean()) / (buf_advantage.std() + 1e-5)
+        buf_advantage = (buf_advantage - buf_advantage.mean()) / (buf_advantage.std() + 1e-5)
 
         buf_len = buf_vec_obs.shape[0]
         '''PPO: Surrogate objective of Trust Region'''
@@ -172,7 +172,7 @@ class AgentPPO:
                 r_sum = buf_r_sum[indices].to(self.device)
                 logprob = buf_logprob[indices].to(self.device)
                 advantage = buf_advantage[indices].to(self.device)
-                advantage = (advantage - advantage.mean()) / (advantage.std() + 1e-5)
+                # advantage = (advantage - advantage.mean()) / (advantage.std() + 1e-5)
                 new_logprob, obj_entropy = self.act.get_logprob_entropy(state, action)  # it is obj_actor
                 ratio = (new_logprob - logprob.detach()).exp()
                 surrogate1 = advantage * ratio
