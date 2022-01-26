@@ -93,7 +93,9 @@ class Critic(torch.nn.Module):
         vis_shape: Tuple[int, int, int],
         vec_shape=None,
         output_size=7,
-        encoding_size=64
+        num_agents=1,
+        encoding_size=64,
+        
     ):
         """
         Creates a neural network that takes as input a batch of images (3
@@ -105,7 +107,7 @@ class Critic(torch.nn.Module):
         if vis_shape:
             height = vis_shape[0]
             width = vis_shape[1]
-            initial_channels = vis_shape[2]
+            initial_channels = vis_shape[2] * num_agents
             conv_1_hw = self.conv_output_shape((height, width), 8, 4)
             conv_2_hw = self.conv_output_shape(conv_1_hw, 4, 2)
             self.final_flat = conv_2_hw[0] * conv_2_hw[1] * 32
@@ -113,7 +115,7 @@ class Critic(torch.nn.Module):
             self.conv2 = torch.nn.Conv2d(16, 32, [4, 4], [2, 2])
         else:
             self.final_flat = 0
-        self.vec_shape = vec_shape
+        self.vec_shape = vec_shape * num_agents
         self.dense1 = torch.nn.Linear(
             self.final_flat+self.vec_shape, encoding_size)
         self.dense2 = torch.nn.Linear(encoding_size, 1)

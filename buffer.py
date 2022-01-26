@@ -85,7 +85,7 @@ class ReplayBuffer:
         dones = torch.from_numpy(np.array([e.done for e in experiences if e is not None]).astype(np.uint8)).float()
         a_probs = torch.from_numpy(np.array([e.a_probs for e in experiences if e is not None])).float()
         return ((vis_obs, vec_obs), actions, rewards.squeeze(), dones, a_probs)
-
+        
     def clear(self):
         self.memory = [[[] for agent in range(self.agents)] for roll in range(self.rolls)]
         return
