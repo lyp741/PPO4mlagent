@@ -73,7 +73,12 @@ class ReplayBuffer:
         # if experiences[-2].done:
         #     print('double 1!')
         # self.memory[roll][agent][:] = memo[i+1:]
-        experiences = memo[:]
+        min_len = len(memo)
+        for r in range(self.rolls):
+            for a in range(self.agents):
+                if len(self.memory[r][a]) < min_len:
+                    min_len = len(self.memory[r][a])
+        experiences = memo[:min_len]
         if experiences[0].state[0] is not None:
             vis_obs = torch.from_numpy(np.array([e.state[0] for e in experiences if e is not None])).float()
         else:
