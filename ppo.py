@@ -144,7 +144,7 @@ class AgentPPO:
 
                 buf_group_vis_obs[roll] = torch.cat(buf_vis_obs[roll], dim=3)
                 buf_group_vec_obs[roll] = torch.cat(buf_vec_obs[roll], dim=1)
-                buf_value = self.cri_target((buf_group_vis_obs[roll].to(self.device), buf_group_vec_obs[roll].to(self.device))).squeeze().cpu()
+                buf_value = self.cri((buf_group_vis_obs[roll].to(self.device), buf_group_vec_obs[roll].to(self.device))).squeeze().cpu()
                 buf_r_sum2, buf_advantage2 = self.get_reward_sum_gae(buf_len, buf_reward2, buf_mask2, buf_value)  # detach()
                 buf_r_sum[roll] = (buf_r_sum2)
                 buf_advantage[roll] = (buf_advantage2)
@@ -205,7 +205,7 @@ class AgentPPO:
                 value = self.cri(group_state).squeeze(1)  # critic network predicts the reward_sum (Q value) of state
                 obj_critic = self.criterion(value, r_sum) / (r_sum.std() + 1e-6)
                 self.optim_update(self.cri_optim, obj_critic)
-                self.soft_update(self.cri_target, self.cri, soft_update_tau)
+                # self.soft_update(self.cri_target, self.cri, soft_update_tau)
 
         # self.buffer.clear()
         writer.add_scalar('PPO/obj_actor', obj_actor.item(), step)
