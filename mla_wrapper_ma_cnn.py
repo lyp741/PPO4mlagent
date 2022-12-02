@@ -59,8 +59,10 @@ class MLA_Wrapper():
         # vec_obs_raw = decisionStep.obs[1] # 2 obs, 1 is vector. (agents*platform, 10)
         groupId = decisionStep.group_id
         self.groupId = groupId
-        self.num_rolls = np.unique(groupId).shape[0]
-        # self.num_rolls = len(groupId)
+        self.num_rolls = 12#np.unique(groupId).shape[0]
+        self.single_agent = True#self.num_rolls == 1
+        if self.num_rolls == 1:
+            self.num_rolls = len(groupId)
         print("num rolls: ", self.num_rolls)
         self.num_agents = int(len(groupId) / self.num_rolls)
         # self.num_agents = 1
@@ -93,8 +95,12 @@ class MLA_Wrapper():
 
         rewards = np.zeros((self.num_rolls, self.num_agents, 1))
         for i in decisionStep:
-            roll = decisionStep[i].group_id-1
-            agent = self.agentid2idx[i]
+            if self.single_agent:
+                roll = decisionStep[i].agent_id
+                agent = 0
+            else:
+                roll = decisionStep[i].group_id-1
+                agent = self.agentid2idx[i]
             if vis_obs is not None:
                 vis_obs[roll, agent] = vis_obs_raw[i]
             if vec_obs is not None:
@@ -125,8 +131,14 @@ class MLA_Wrapper():
         action = np.zeros((min(self.num_agents * self.num_rolls,numNeedDecision),1))
         for i in self.decisionStep:
             a = np.zeros((1,1))
+            if self.single_agent:
+                roll = self.decisionStep[i].agent_id
+                agent = 0
+            else:
+                roll = self.decisionStep[i].group_id-1
+                agent = self.agentid2idx[i]
             # a[0] = np.argmax(actions[self.groupId[i]-1,i%self.num_agents])
-            a[0] = actions[self.decisionStep[i].group_id-1, self.agentid2idx[i]]
+            a[0] = actions[roll, agent]
             # a[0] = actions[i][0]
             a = ActionTuple(discrete=a)
             # self.env.set_actions(self.behavior_name, action)
@@ -156,8 +168,12 @@ class MLA_Wrapper():
 
         for agent_id in decisionStep:
             ds = decisionStep[agent_id]
-            roll = ds.group_id - 1
-            agent = self.agentid2idx[agent_id]
+            if self.single_agent:
+                roll = ds.agent_id
+                agent = 0
+            else:
+                roll = ds.group_id - 1
+                agent = self.agentid2idx[agent_id]
             # roll = agent_id
             # agent = 0
             if vis_obs is not None:
@@ -178,8 +194,12 @@ class MLA_Wrapper():
 
         for agent_id in terminalStep:
             ts = terminalStep[agent_id]
-            roll = ts.group_id - 1
-            agent = self.agentid2idx[agent_id]
+            if self.single_agent:
+                roll = ts.agent_id
+                agent = 0
+            else:
+                roll = ts.group_id - 1
+                agent = self.agentid2idx[agent_id]
             # roll = agent_id
             # agent = 0
             # vis_obs[roll, agent] = ts.obs[0]

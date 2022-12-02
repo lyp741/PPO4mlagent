@@ -50,8 +50,8 @@ def train_and_evaluate(args, agent_id=0):
     if_train = False
 
     try:
-        agent.load_model('model.pkl')
-        print('loded model')
+        #agent.load_model('model.pkl')
+        print('loaded model')
     except:
         print('no model')
     if_train = True

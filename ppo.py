@@ -141,15 +141,19 @@ class AgentPPO:
                     buf_vis_obs[roll][agent] = (vis_obs)
                     buf_vec_obs[roll][agent] = (vec_obs)
                     buf_action[roll][agent] = (buf_action2)
-
-                buf_group_vis_obs[roll] = torch.cat(buf_vis_obs[roll], dim=3)
+                if vis_obs is not None:
+                    buf_group_vis_obs[roll] = torch.cat(buf_vis_obs[roll], dim=3)
                 buf_group_vec_obs[roll] = torch.cat(buf_vec_obs[roll], dim=1)
-                buf_value = self.cri((buf_group_vis_obs[roll].to(self.device), buf_group_vec_obs[roll].to(self.device))).squeeze().cpu()
+                if vis_obs is not None:
+                    buf_value = self.cri((buf_group_vis_obs[roll].to(self.device), buf_group_vec_obs[roll].to(self.device))).squeeze().cpu()
+                else:
+                    buf_value = self.cri((None, buf_group_vec_obs[roll].to(self.device))).squeeze().cpu()
                 buf_r_sum2, buf_advantage2 = self.get_reward_sum_gae(buf_len, buf_reward2, buf_mask2, buf_value)  # detach()
                 buf_r_sum[roll] = (buf_r_sum2)
                 buf_advantage[roll] = (buf_advantage2)
                 buf_logprob[roll] = torch.stack(buf_logprob[roll], dim=0)
-                buf_vis_obs[roll] = torch.stack(buf_vis_obs[roll], dim=0)
+                if vis_obs is not None:
+                    buf_vis_obs[roll] = torch.stack(buf_vis_obs[roll], dim=0)
                 buf_vec_obs[roll] = torch.stack(buf_vec_obs[roll], dim=0)
                 buf_action[roll] = torch.stack(buf_action[roll], dim=0)
 
@@ -159,7 +163,8 @@ class AgentPPO:
         buf_advantage = [(adv - cat_adv.mean()) / (cat_adv.std() + 1e-5) for adv in buf_advantage]
         buf_advantage = torch.stack(buf_advantage, dim=0)
         buf_logprob = torch.stack(buf_logprob, dim=0)
-        buf_vis_obs = torch.stack(buf_vis_obs, dim=0)
+        if vis_obs is not None:
+            buf_vis_obs = torch.stack(buf_vis_obs, dim=0)
         buf_vec_obs = torch.stack(buf_vec_obs, dim=0)
         buf_action = torch.stack(buf_action, dim=0)
         # if buf_vis_obs[0][0] is not None:
@@ -169,7 +174,8 @@ class AgentPPO:
 
         buf_r_sum = torch.stack(buf_r_sum, dim=0)
         
-        buf_group_vis_obs = torch.stack(buf_group_vis_obs, dim=0)
+        if vis_obs is not None:
+            buf_group_vis_obs = torch.stack(buf_group_vis_obs, dim=0)
         buf_group_vec_obs = torch.stack(buf_group_vec_obs, dim=0)
         buf_len = cat_adv.shape[0] * self.num_agents
         '''PPO: Surrogate objective of Trust Region'''
@@ -181,12 +187,15 @@ class AgentPPO:
                 idx_roll = torch.randint(self.num_rolls, size=(bs,), requires_grad=False, device=self.device)
                 idx_agent = torch.randint(self.num_agents, size=(bs,), requires_grad=False, device=self.device)
                 idx = torch.randint(buf_advantage.shape[1], size=(bs,), requires_grad=False, device=self.device)
-                if buf_vis_obs is not None:
+                if vis_obs is not None:
                     vis = torch.stack([buf_vis_obs[r, a, i] for r, a, i in zip(idx_roll, idx_agent, idx)], dim=0)
                 else:
                     vis = None
                 vec = torch.stack([buf_vec_obs[r, a, i] for r, a, i in zip(idx_roll, idx_agent, idx)], dim=0)
-                state = (vis.to(self.device),vec.to(self.device))
+                if vis_obs is not None:
+                    state = (vis.to(self.device),vec.to(self.device))
+                else:
+                    state = (None, vec.to(self.device))
                 action = torch.stack([buf_action[r, a, i] for r, a, i in zip(idx_roll, idx_agent, idx)], dim=0).to(self.device)
                 r_sum = torch.stack([buf_r_sum[r, i] for r, i in zip(idx_roll, idx)], dim=0).to(self.device)
                 logprob = torch.stack([buf_logprob[r, a, i] for r, a, i in zip(idx_roll, idx_agent, idx)], dim=0).to(self.device)
@@ -199,9 +208,13 @@ class AgentPPO:
                 obj_surrogate = -torch.min(surrogate1, surrogate2).mean()
                 obj_actor = obj_surrogate - obj_entropy * self.lambda_entropy
                 self.optim_update(self.act_optim, obj_actor)
-                group_vis_state = torch.stack([buf_group_vis_obs[r, i] for r, i in zip(idx_roll, idx)], dim=0).to(self.device)
+                if vis_obs is not None:
+                    group_vis_state = torch.stack([buf_group_vis_obs[r, i] for r, i in zip(idx_roll, idx)], dim=0).to(self.device)
                 group_vec_state = torch.stack([buf_group_vec_obs[r, i] for r, i in zip(idx_roll, idx)], dim=0).to(self.device)
-                group_state = (group_vis_state, group_vec_state)
+                if vis_obs is not None:
+                    group_state = (group_vis_state, group_vec_state)
+                else:
+                    group_state = (None, group_vec_state)
                 value = self.cri(group_state).squeeze(1)  # critic network predicts the reward_sum (Q value) of state
                 obj_critic = self.criterion(value, r_sum) / (r_sum.std() + 1e-6)
                 self.optim_update(self.cri_optim, obj_critic)
