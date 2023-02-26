@@ -9,6 +9,7 @@ from copy import deepcopy
 from args import Arguments
 from ppo import AgentPPO
 from mla_wrapper_ma_cnn import MLA_Wrapper
+from tqdm import tqdm
 
 def train_and_evaluate(args, agent_id=0):
     args.init_before_training(if_main=True)
@@ -54,15 +55,22 @@ def train_and_evaluate(args, agent_id=0):
         print('loded model')
     except:
         print('no model')
-    if_train = True
-    while True:
-        with torch.no_grad():
-            trajectory_list = agent.explore_env(env, target_step)
-            # steps, r_exp = update_buffer(trajectory_list)
+    if_train = False
 
-        if if_train:
+    if if_train:
+        while True:
+            with torch.no_grad():
+                trajectory_list = agent.explore_env(env, target_step)
+                # steps, r_exp = update_buffer(trajectory_list)
+
             logging_tuple = agent.update_net(batch_size, repeat_times, soft_update_tau)
             agent.save_model('model.pkl')
+    else:
+        for i in tqdm(range(100)):
+            with torch.no_grad():
+                trajectory_list = agent.explore_env(env, target_step)
+                # steps, r_exp = update_buffer(trajectory_list)
+        agent.buffer.save_dataset()
 
 def main():
     args = Arguments()  # hyper-parameters of on-policy is different from off-policy

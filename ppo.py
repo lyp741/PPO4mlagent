@@ -162,7 +162,7 @@ class AgentPPO:
         for _ in range(3):
             # indices = torch.randint(buf_len, size=(128,), requires_grad=False, device=self.device)
             for i in range(int(buf_len/1024)-1):
-                indices = torch.randint(buf_len, size=(1024,), requires_grad=False, device=self.device)
+                indices = torch.randint(buf_len, size=(1024,), requires_grad=False,)
                 if buf_vis_obs is not None:
                     vis = buf_vis_obs[indices]
                 else:

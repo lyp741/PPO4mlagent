@@ -1,4 +1,4 @@
 *.pyc
 runs/*
-model.pkl
+*.pkl
 ppo*

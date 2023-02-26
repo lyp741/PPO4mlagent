@@ -4,8 +4,9 @@ import numpy as np
 import random
 from collections import namedtuple, deque
 import torch
+import cloudpickle
 
-
+experience = namedtuple("Experience", field_names=["state", "action", "reward", "done", "a_probs"])
 class ReplayBuffer:
     def __init__(self, buffer_size, batch_size, device, rolls=32, agents=1):
         """Initialize a ReplayBuffer object.
@@ -20,10 +21,11 @@ class ReplayBuffer:
         self.device = device
         self.memory = [[[] for agent in range(agents)] for roll in range(rolls)]
         self.batch_size = batch_size
-        self.experience = namedtuple("Experience", field_names=["state", "action", "reward", "done", "a_probs"])
+        
         self.device = device
         self.rolls = rolls
         self.agents = agents
+        self.datasets = [[[] for agent in range(agents)] for roll in range(rolls)]
     
     def add(self, state, action, reward, done, a_probs, masks):
         for i in masks:
@@ -35,11 +37,12 @@ class ReplayBuffer:
                 vis_o = vis_obs[roll][agent]
             else:
                 vis_o = None
-            e = self.experience((vis_o, vec_obs[roll, agent]), action[roll, agent], reward[roll, agent], done[roll, agent], a_probs[roll, agent])
+            e = experience((vis_o, vec_obs[roll, agent]), action[roll, agent], reward[roll, agent], done[roll, agent], a_probs[roll, agent])
             if len(self.memory[roll][agent])>2 and self.memory[roll][agent][-1].done and e.done:
                 # print('double 2!')
                 continue
             self.memory[roll][agent].append(e)
+            self.datasets[roll][agent].append(e)
         a = 1
 
     def sample(self):
@@ -86,8 +89,15 @@ class ReplayBuffer:
         a_probs = torch.from_numpy(np.array([e.a_probs for e in experiences if e is not None])).float()
         return ((vis_obs, vec_obs), actions, rewards.squeeze(), dones, a_probs)
 
+    def save_dataset(self):
+        with open(f'dataset.pkl', 'wb') as f:
+            cloudpickle.dump(self.datasets, f)
+
     def clear(self):
         self.memory = [[[] for agent in range(self.agents)] for roll in range(self.rolls)]
+        self.datasets = [[[] for agent in range(self.agents)] for roll in range(self.rolls)]
+        with open(f'dataset.pkl', 'wb') as f:
+            cloudpickle.dump(self.datasets, f)
         return
         for roll in self.rolls:
             for agent in self.agents:
